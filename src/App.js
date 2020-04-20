@@ -1,6 +1,5 @@
 import React from "react";
-import { Auth, Hub } from "aws-amplify";
-import { Authenticator, AmplifyTheme } from "aws-amplify-react";
+import { Auth } from "aws-amplify";
 import { BrowserRouter as Router, Route } from "react-router-dom";
 import HomePage from "./pages/HomePage";
 import ProfilePage from "./pages/ProfilePage";
@@ -16,68 +15,49 @@ class App extends React.Component {
   }
 
   getUserData = async () => {
-    const user = await Auth.currentAuthenticatedUser();
-    user ? this.setState({ user }) : this.setState({ user: null });
-    Hub.listen("auth", this, "onHubCapsule");
+    try {
+      const user = await Auth.currentAuthenticatedUser();
+      user ? this.setState({ user }) : this.setState({ user: null });
+    } catch (err) {
+      console.error(err);
+      this.setState({ user: null });
+    }
   };
 
-  onHubCapsule = capsule => {
-    switch (capsule) {
-      case "signIn":
-        console.log("user signed in!");
-        this.getUserData();
-        break;
-      case "signUp":
-        console.log("signed up");
-        break;
-      case "signOut":
-        console.log("signed out");
-        this.setState({ user: null });
-        break;
-      default:
-        return;
+  handleSignout = async () => {
+    console.log("signing out");
+    try {
+      await Auth.signOut();
+      this.setState({ user: null });
+    } catch (err) {
+      console.error("Error singing out user", err);
     }
   };
 
   render() {
     const { user } = this.state;
-    return !user ? (
-      <Authenticator theme={theme} hideDefault={true} />
-    ) : (
-      <Router>
-        <>
-          <Navbar />
-          <div className="app-container">
-            <Route exact path="/" component={HomePage} />
-            <Route path="/profile" component={ProfilePage} />
-            <Route
-              path="/markets/:marketId"
-              component={({ match }) => (
-                <MarketPage marketId={match.params.marketId} />
-              )}
-            />
-          </div>
-        </>
-      </Router>
-    );
+    if (this.props.authState === "signedIn" && user) {
+      return (
+        <Router>
+          <>
+            <Navbar user={user} handleSignout={this.handleSignout} />
+            <div className="app-container">
+              <Route exact path="/" component={HomePage} />
+              <Route path="/profile" component={ProfilePage} />
+              <Route
+                path="/markets/:marketId"
+                component={({ match }) => (
+                  <MarketPage marketId={match.params.marketId} />
+                )}
+              />
+            </div>
+          </>
+        </Router>
+      );
+    } else {
+      return null;
+    }
   }
 }
-
-const theme = {
-  ...AmplifyTheme,
-  navBar: {
-    ...AmplifyTheme.navBar,
-    backgroundColor: "#ffc0cb"
-  },
-  button: { ...AmplifyTheme.button, backgroundColor: "var(--amazonOrange)" },
-  sectionBody: {
-    ...AmplifyTheme.sectionBody,
-    padding: "5px"
-  },
-  sectionHeader: {
-    ...AmplifyTheme.sectionHeader,
-    backgroundColor: "var(--squidInk)"
-  }
-};
 
 export default App;
